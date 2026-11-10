@@ -1,0 +1,19 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "MsuOwnsItsKey",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::MSU_ACCOUNT_ID:root" },
+      "Action": "kms:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "PartnerUniversityMayVerifyOnly",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::PARTNER_ACCOUNT_ID:root" },
+      "Action": ["kms:Verify", "kms:GetPublicKey", "kms:DescribeKey"],
+      "Resource": "*"
+    }
+  ]
+}

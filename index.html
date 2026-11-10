@@ -1,0 +1,630 @@
+<meta charset="utf-8">
+<title>TrustCert</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: top bar with "acting as" university, story strip, tabbed workspace (issue / verify / trust network / records / audit) */
+:root {
+  --bg: #F3F5F8; --surface: #FFFFFF; --sunk: #EAEEF3; --ink: #15213A; --muted: #5A6578; --line: #D8DEE7;
+  --accent: #0E5C68; --accent-ink: #FFFFFF; --accent-soft: #DDEFF1;
+  --ok: #1B7343; --ok-bg: #E3F3E9; --warn: #8F5B00; --warn-bg: #FBEFD6; --bad: #AF2A20; --bad-bg: #FBE5E2;
+  --u1: #8A1C2C; --u2: #1F5FA8; --u3: #2E7D4F; --u4: #8A5A00; --u5: #6B3FA0; --u6: #00707A;
+  --display: "Sora", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0D131B; --surface: #151D28; --sunk: #101722; --ink: #E5EAF2; --muted: #98A4B6; --line: #26324289;
+  --accent: #5EC0CC; --accent-ink: #062126; --accent-soft: #123139;
+  --ok: #63D394; --ok-bg: #11301F; --warn: #F0B856; --warn-bg: #33270E; --bad: #FF8F84; --bad-bg: #3A1613;
+  --u1: #F07D8E; --u2: #79AEF0; --u3: #6FCB93; --u4: #E3B45C; --u5: #B89AF0; --u6: #5ECFD8;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0D131B; --surface: #151D28; --sunk: #101722; --ink: #E5EAF2; --muted: #98A4B6; --line: #26324289;
+  --accent: #5EC0CC; --accent-ink: #062126; --accent-soft: #123139;
+  --ok: #63D394; --ok-bg: #11301F; --warn: #F0B856; --warn-bg: #33270E; --bad: #FF8F84; --bad-bg: #3A1613;
+  --u1: #F07D8E; --u2: #79AEF0; --u3: #6FCB93; --u4: #E3B45C; --u5: #B89AF0; --u6: #5ECFD8;
+  color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body) }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.2 }
+h2 { font-size: 1.25rem; font-weight: 600 }
+h3 { font-size: 1rem; font-weight: 600 }
+p { margin: 0 }
+code, .mono { font-family: var(--mono); font-size: .85em }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+
+/* Top bar */
+.bar { background: var(--surface); border-bottom: 1px solid var(--line) }
+.bar .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding-block: 14px }
+.brand { display: flex; align-items: center; gap: 10px; margin-right: auto }
+.brand h1 { font-size: 1.3rem; letter-spacing: -.01em }
+.brand small { color: var(--muted); font-size: .8rem; display: block }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; background: var(--sunk); color: var(--muted); font-size: .75rem; font-family: var(--mono); white-space: nowrap }
+.acting { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.acting select { width: auto; max-width: 100% }
+.acting label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted) }
+
+/* Story strip */
+.story { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding-block: 20px 4px }
+.step { display: flex; gap: 12px; align-items: flex-start }
+.step b { font-family: var(--display); font-size: .8rem; width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent) }
+.step p { color: var(--muted); font-size: .88rem }
+.step strong { color: var(--ink); display: block; font-size: .92rem }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; overflow-x: auto; padding-block: 18px 0; border-bottom: 1px solid var(--line) }
+.tab { appearance: none; border: 0; background: none; color: var(--muted); font: 500 .92rem var(--body); padding: 10px 14px; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent) }
+.tab:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+main { padding-block: 22px 60px }
+.panel { display: grid; gap: 20px }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; align-items: start }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0 }
+.lede { color: var(--muted); max-width: 68ch }
+.aws { font-family: var(--mono); font-size: .74rem; color: var(--accent); background: var(--accent-soft); padding: 2px 7px; border-radius: 4px; white-space: nowrap }
+
+/* Forms */
+.field { display: grid; gap: 5px }
+.field label { font-size: .78rem; font-weight: 600; color: var(--muted) }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; width: 100%; min-width: 0 }
+textarea { font-family: var(--mono); font-size: .78rem; line-height: 1.5; resize: vertical; min-height: 220px }
+.btns { display: flex; flex-wrap: wrap; gap: 8px }
+button.b { appearance: none; font: 600 .88rem var(--body); border-radius: 7px; padding: 9px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--ink) }
+button.b:hover { border-color: var(--accent) }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
+button.danger { color: var(--bad) }
+button.b:disabled { opacity: .5; cursor: default }
+
+/* Certificate */
+.cert { position: relative; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 22px 22px 18px; display: grid; gap: 14px; overflow: hidden }
+.cert::before { content: ""; position: absolute; inset: 6px; border: 1px dashed var(--line); border-radius: 6px; pointer-events: none }
+.cert .top { display: flex; align-items: center; gap: 12px }
+.seal { width: 52px; height: 52px; flex: none; border-radius: 50%; display: grid; place-items: center; font: 700 .72rem var(--display); color: var(--surface); background: var(--uc, var(--accent)); box-shadow: 0 0 0 3px var(--surface), 0 0 0 4px var(--uc, var(--accent)) }
+.cert .issuer { font-family: var(--display); font-weight: 600 }
+.cert .kicker { font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted) }
+.cert .name { font-family: var(--display); font-size: 1.45rem; font-weight: 600; overflow-wrap: anywhere }
+.cert .title { font-size: 1rem }
+.cert dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0; font-size: .8rem }
+.cert dt { color: var(--muted) }
+.cert dd { margin: 0; font-family: var(--mono); overflow-wrap: anywhere }
+.demo-mark { position: absolute; right: 14px; top: 12px; font: 600 .62rem var(--mono); letter-spacing: .12em; color: var(--muted) }
+
+/* Verify result */
+.verdict { border-radius: 10px; padding: 16px 18px; display: grid; gap: 4px }
+.verdict h3 { font-size: 1.15rem }
+.v-ok { background: var(--ok-bg); color: var(--ok) }
+.v-warn { background: var(--warn-bg); color: var(--warn) }
+.v-bad { background: var(--bad-bg); color: var(--bad) }
+.verdict p { color: var(--ink); font-size: .9rem }
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px }
+.checks li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start }
+.mark { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font: 700 .72rem var(--mono) }
+.m-ok { background: var(--ok-bg); color: var(--ok) } .m-bad { background: var(--bad-bg); color: var(--bad) } .m-warn { background: var(--warn-bg); color: var(--warn) } .m-skip { background: var(--sunk); color: var(--muted) }
+.checks strong { display: block; font-size: .9rem }
+.checks span.d { color: var(--muted); font-size: .84rem }
+.path { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: .82rem }
+.empty { color: var(--muted); font-size: .9rem; padding: 18px; border: 1px dashed var(--line); border-radius: 10px; text-align: center }
+
+/* Network */
+.unis { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px }
+.uni { border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 10px; background: var(--surface) }
+.uni.me { border-color: var(--uc) }
+.uni .hd { display: flex; align-items: center; gap: 10px }
+.uni .seal { width: 36px; height: 36px; font-size: .6rem; box-shadow: none }
+.uni .fp { font-family: var(--mono); font-size: .72rem; color: var(--muted); overflow-wrap: anywhere }
+.tag { display: inline-block; font-size: .74rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); margin: 2px 4px 2px 0 }
+.toggle { display: flex; align-items: center; gap: 8px; font-size: .86rem }
+.toggle input { width: auto }
+.graph { width: 100%; max-width: 460px; height: auto; display: block; margin: 0 auto }
+
+/* Tables */
+.tbl { overflow-x: auto }
+table { border-collapse: collapse; width: 100%; font-size: .84rem }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600 }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; font-family: var(--mono); font-size: .76rem }
+.st { font: 600 .7rem var(--mono); padding: 2px 7px; border-radius: 4px }
+.st-ok { background: var(--ok-bg); color: var(--ok) } .st-bad { background: var(--bad-bg); color: var(--bad) }
+
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 8px; font-size: .88rem; z-index: 20; max-width: calc(100% - 32px) }
+footer { color: var(--muted); font-size: .8rem; padding-block: 0 30px }
+
+@media (max-width: 820px) { .cols, .story { grid-template-columns: minmax(0, 1fr) } }
+@media (max-width: 460px) { .row2 { grid-template-columns: 1fr } }
+@media (prefers-reduced-motion: no-preference) { .verdict, .cert { animation: rise .25s ease-out } @keyframes rise { from { transform: translateY(4px) } to { transform: none } } }
+</style>
+
+<header class="bar">
+  <div class="wrap">
+    <div class="brand">
+      <div>
+        <h1>TrustCert</h1>
+        <small>Decentralized academic credential verification</small>
+      </div>
+    </div>
+    <div class="acting">
+      <label for="actingSel">Acting as</label>
+      <select id="actingSel" aria-label="University you are acting as"></select>
+      <span class="chip" title="Simulated AWS Region for section VvWw">ap-southeast-1 · Singapore</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="story" aria-label="How TrustCert works">
+    <div class="step"><b>1</b><p><strong>A university signs</strong>Each university holds its own private signing key. No one else can issue in its name.</p></div>
+    <div class="step"><b>2</b><p><strong>The student shares it</strong>The signed certificate is plain text the student can send anywhere.</p></div>
+    <div class="step"><b>3</b><p><strong>Any university verifies</strong>The verifier checks the signature with the issuer's public key and applies its own trust list.</p></div>
+  </section>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab" role="tab" id="tab-verify" data-tab="verify">Verify</button>
+    <button class="tab" role="tab" id="tab-issue" data-tab="issue">Issue</button>
+    <button class="tab" role="tab" id="tab-network" data-tab="network">Trust network</button>
+    <button class="tab" role="tab" id="tab-records" data-tab="records">Issued records</button>
+    <button class="tab" role="tab" id="tab-audit" data-tab="audit">Audit log</button>
+  </nav>
+
+  <main id="view"><p class="empty">Generating university signing keys…</p></main>
+
+  <footer>
+    Classroom demo for ITE183. Certificates made here are samples, not real credentials. Keys and records stay in this browser.
+    <button class="b danger" id="resetBtn" style="margin-left:8px;padding:4px 10px;font-size:.78rem">Reset demo</button>
+  </footer>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+"use strict";
+const STORE = "trustcert-demo-v1";
+const ALG = { name: "ECDSA", namedCurve: "P-256" };
+const SIGN = { name: "ECDSA", hash: "SHA-256" };
+const enc = new TextEncoder();
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+let S = null;            // app state
+let tab = "verify";
+let lastResult = null;   // last verification result
+let verifyText = "";     // contents of the verify box
+let lastIssued = null;
+
+/* ---------- crypto helpers ---------- */
+// Canonical JSON: sorted keys, no spaces. The same rule is used by the AWS Lambda version.
+function canon(v) {
+  if (v === null || typeof v !== "object") return JSON.stringify(v);
+  if (Array.isArray(v)) return "[" + v.map(canon).join(",") + "]";
+  return "{" + Object.keys(v).sort().map(k => JSON.stringify(k) + ":" + canon(v[k])).join(",") + "}";
+}
+const b64 = buf => { let s = ""; new Uint8Array(buf).forEach(b => s += String.fromCharCode(b)); return btoa(s); };
+const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function sha256hex(str) {
+  const d = await crypto.subtle.digest("SHA-256", enc.encode(str));
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+async function fingerprint(jwk) {
+  const h = await sha256hex(canon({ crv: jwk.crv, kty: jwk.kty, x: jwk.x, y: jwk.y }));
+  return h.slice(0, 20).toUpperCase().match(/.{4}/g).join(":");
+}
+async function newKeys() {
+  const kp = await crypto.subtle.generateKey(ALG, true, ["sign", "verify"]);
+  const pub = await crypto.subtle.exportKey("jwk", kp.publicKey);
+  const priv = await crypto.subtle.exportKey("jwk", kp.privateKey);
+  return { pub, priv, fp: await fingerprint(pub) };
+}
+
+/* ---------- state ---------- */
+const uni = id => S.unis.find(u => u.id === id);
+const colorOf = u => `var(--u${(u.color % 6) + 1})`;
+function save() { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) {} }
+function load() { try { const r = localStorage.getItem(STORE); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+function log(actor, action, aws, detail) {
+  S.audit.unshift({ t: new Date().toISOString(), actor, action, aws, detail });
+  if (S.audit.length > 300) S.audit.length = 300;
+}
+async function makeUni(id, short, name, color) {
+  const k = await newKeys();
+  return { id, short, name, color, pub: k.pub, priv: k.priv, fp: k.fp, trusts: [], revoked: [], issued: [] };
+}
+
+async function seed() {
+  S = { acting: "nsu", unis: [], audit: [] };
+  S.unis.push(await makeUni("msu", "MSU", "MSU", 0));
+  S.unis.push(await makeUni("nsu", "NSU", "Northport State University", 1));
+  S.unis.push(await makeUni("cvc", "CVC", "Carmel Valley College", 2));
+  for (const u of S.unis) log(u.short, "Created signing key", "KMS CreateKey", "ECC_NIST_P256 key " + u.fp);
+  uni("msu").trusts = ["nsu"];
+  uni("nsu").trusts = ["msu"];
+  uni("cvc").trusts = ["nsu"];
+  log("NSU", "Trusts MSU", "DynamoDB UpdateItem", "NSU added MSU to its trust list");
+  log("CVC", "Trusts NSU", "DynamoDB UpdateItem", "CVC trusts NSU, and through NSU, the issuers NSU vouches for");
+  const cert = await issue("msu", {
+    name: "Juan Dela Cruz", studentId: "2022-00123",
+    title: "Bachelor of Science in Information Technology", honors: "Cum Laude", dateConferred: "2026-06-15"
+  });
+  verifyText = JSON.stringify(cert, null, 2);
+  lastIssued = cert;
+  save();
+}
+
+/* ---------- core operations ---------- */
+async function issue(issuerId, f) {
+  const u = uni(issuerId);
+  const year = (f.dateConferred || new Date().toISOString()).slice(0, 4);
+  const rand = [...crypto.getRandomValues(new Uint8Array(3))].map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+  const body = {
+    type: "AcademicCredential",
+    version: 1,
+    certId: `TC-${year}-${u.short}-${rand}`,
+    issuer: { id: u.id, name: u.name, keyFingerprint: u.fp },
+    subject: { name: f.name.trim(), studentId: f.studentId.trim() },
+    credential: { title: f.title.trim(), honors: (f.honors || "").trim(), dateConferred: f.dateConferred },
+    issuedAt: new Date().toISOString()
+  };
+  const key = await crypto.subtle.importKey("jwk", u.priv, ALG, false, ["sign"]);
+  const sig = await crypto.subtle.sign(SIGN, key, enc.encode(canon(body)));
+  const cert = { ...body, signature: { alg: "ECDSA_SHA_256", curve: "P-256", value: b64(sig) } };
+  u.issued.unshift(cert);
+  log(u.short, "Issued " + cert.certId, "KMS Sign + DynamoDB PutItem", `${body.subject.name}: ${body.credential.title}`);
+  return cert;
+}
+
+function trustPath(verifierId, issuerId) {
+  if (verifierId === issuerId) return { kind: "self", path: [verifierId] };
+  const v = uni(verifierId);
+  if (v.trusts.includes(issuerId)) return { kind: "direct", path: [verifierId, issuerId] };
+  for (const mid of v.trusts) {
+    const m = uni(mid);
+    if (m && m.trusts.includes(issuerId)) return { kind: "delegated", path: [verifierId, mid, issuerId] };
+  }
+  return { kind: "none", path: [] };
+}
+
+async function verify(text, verifierId) {
+  const checks = [];
+  const add = (state, label, detail) => checks.push({ state, label, detail });
+  const v = uni(verifierId);
+  let cert;
+  try { cert = JSON.parse(text); } catch (e) {
+    add("bad", "Readable certificate", "This isn't valid certificate text. Paste the full certificate exactly as it was shared.");
+    return finish("invalid", null);
+  }
+  if (!cert || !cert.certId || !cert.issuer || !cert.issuer.id || !cert.signature || !cert.signature.value) {
+    add("bad", "Readable certificate", "Required parts are missing (certId, issuer, or signature).");
+    return finish("invalid", cert);
+  }
+  add("ok", "Readable certificate", `Certificate ${cert.certId} for ${cert.subject?.name ?? "unknown"}.`);
+
+  const iss = uni(cert.issuer.id);
+  if (!iss) {
+    add("bad", "Issuer's public key found", `No university named "${cert.issuer.id}" has published a public key.`);
+    return finish("invalid", cert);
+  }
+  if (cert.issuer.keyFingerprint !== iss.fp) {
+    add("bad", "Issuer's public key found", `The certificate names key ${cert.issuer.keyFingerprint}, but ${iss.short} publishes key ${iss.fp}.`);
+    return finish("invalid", cert);
+  }
+  add("ok", "Issuer's public key found", `${iss.name} publishes key ${iss.fp}.`);
+
+  const { signature, ...body } = cert;
+  let valid = false;
+  try {
+    const key = await crypto.subtle.importKey("jwk", iss.pub, ALG, false, ["verify"]);
+    valid = await crypto.subtle.verify(SIGN, key, unb64(signature.value), enc.encode(canon(body)));
+  } catch (e) { valid = false; }
+  if (!valid) {
+    add("bad", "Signature matches", "The signature does not match the contents. The certificate was edited after signing, or it was not signed by this issuer.");
+    add("skip", "Not revoked", "Skipped because the signature failed.");
+    add("skip", "Trusted by " + v.short, "Skipped because the signature failed.");
+    return finish("invalid", cert);
+  }
+  add("ok", "Signature matches", `Signed by ${iss.short}'s private key. Not one character has changed since issuing.`);
+
+  if (iss.revoked.includes(cert.certId)) {
+    add("bad", "Not revoked", `${iss.short} has published this certificate as revoked.`);
+    add("skip", "Trusted by " + v.short, "Skipped because the certificate is revoked.");
+    return finish("revoked", cert);
+  }
+  add("ok", "Not revoked", `${cert.certId} is not on ${iss.short}'s revocation list.`);
+
+  const tp = trustPath(verifierId, iss.id);
+  if (tp.kind === "none") {
+    add("warn", "Trusted by " + v.short, `${v.short} does not trust ${iss.short}, directly or through a university it trusts. Add ${iss.short} in the Trust network tab if you accept it.`);
+    return finish("untrusted", cert, tp);
+  }
+  const how = tp.kind === "self" ? `${v.short} issued this certificate itself.`
+    : tp.kind === "direct" ? `${v.short} trusts ${iss.short} directly.`
+    : `${v.short} trusts ${uni(tp.path[1]).short}, and ${uni(tp.path[1]).short} vouches for ${iss.short} (delegated trust).`;
+  add("ok", "Trusted by " + v.short, how);
+  return finish("verified", cert, tp);
+
+  function finish(verdict, c, tp) {
+    log(v.short, `Verified ${c && c.certId ? c.certId : "a certificate"}: ${verdict}`, "KMS Verify + DynamoDB GetItem", c && c.issuer ? "Issuer " + (c.issuer.id || "").toUpperCase() : "Unreadable input");
+    save();
+    return { verdict, checks, cert: c, tp, verifier: verifierId };
+  }
+}
+
+/* ---------- rendering ---------- */
+function seal(u, extra = "") {
+  return `<div class="seal ${extra}" style="--uc:${colorOf(u)}" aria-hidden="true">${esc(u.short)}</div>`;
+}
+function certCard(c) {
+  const u = uni(c.issuer?.id) || { short: "?", color: 5, name: c.issuer?.name || "Unknown issuer" };
+  return `<article class="cert" aria-label="Certificate preview">
+    <span class="demo-mark">SAMPLE</span>
+    <div class="top">${seal(u)}<div><div class="kicker">Issued by</div><div class="issuer">${esc(c.issuer?.name || u.name)}</div></div></div>
+    <div><div class="kicker">This certifies that</div><div class="name">${esc(c.subject?.name || "Student name")}</div></div>
+    <div class="title">${esc(c.credential?.title || "Degree or program")}${c.credential?.honors ? ` · <em>${esc(c.credential.honors)}</em>` : ""}</div>
+    <dl>
+      <dt>Student ID</dt><dd>${esc(c.subject?.studentId || "—")}</dd>
+      <dt>Conferred</dt><dd>${esc(c.credential?.dateConferred || "—")}</dd>
+      <dt>Certificate ID</dt><dd>${esc(c.certId || "assigned when signed")}</dd>
+      <dt>Issuer key</dt><dd>${esc(c.issuer?.keyFingerprint || u.fp || "—")}</dd>
+      <dt>Signature</dt><dd>${c.signature ? esc(c.signature.alg + " · " + c.signature.value.slice(0, 32) + "…") : "not signed yet"}</dd>
+    </dl>
+  </article>`;
+}
+
+function renderActing() {
+  const sel = $("#actingSel");
+  sel.innerHTML = S.unis.map(u => `<option value="${esc(u.id)}">${esc(u.short)} · ${esc(u.name)}</option>`).join("");
+  sel.value = S.acting;
+}
+
+function render() {
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t.dataset.tab === tab)));
+  const view = $("#view");
+  view.innerHTML = ({ verify: viewVerify, issue: viewIssue, network: viewNetwork, records: viewRecords, audit: viewAudit })[tab]();
+  bind[tab] && bind[tab]();
+}
+
+function viewVerify() {
+  const me = uni(S.acting);
+  let out = "";
+  if (lastResult) {
+    const r = lastResult;
+    const cls = { verified: "v-ok", untrusted: "v-warn", revoked: "v-bad", invalid: "v-bad" }[r.verdict];
+    const head = { verified: "Verified", untrusted: "Authentic, but not trusted", revoked: "Revoked", invalid: "Not authentic" }[r.verdict];
+    const msg = {
+      verified: "The certificate is genuine, unchanged, still valid, and comes from an issuer this university trusts.",
+      untrusted: "The signature is genuine, but this university has not chosen to trust the issuer.",
+      revoked: "The issuer has withdrawn this certificate.",
+      invalid: "Do not accept this certificate."
+    }[r.verdict];
+    const vu = uni(r.verifier);
+    const marks = { ok: ["m-ok", "✓"], bad: ["m-bad", "✕"], warn: ["m-warn", "!"], skip: ["m-skip", "–"] };
+    out = `<div class="verdict ${cls}" role="status"><h3>${head}</h3><p>${msg} Checked by ${esc(vu.name)}.</p></div>
+      <ul class="checks">${r.checks.map(c => `<li><span class="mark ${marks[c.state][0]}" aria-hidden="true">${marks[c.state][1]}</span><div><strong>${esc(c.label)}</strong><span class="d">${esc(c.detail)}</span></div></li>`).join("")}</ul>
+      ${r.tp && r.tp.path.length > 1 ? `<div class="path"><span class="kicker" style="font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Trust path</span>${r.tp.path.map(id => `<span class="tag" style="border-color:${colorOf(uni(id))}">${esc(uni(id).short)}</span>`).join("→")}</div>` : ""}
+      ${r.cert && r.cert.subject ? certCard(r.cert) : ""}`;
+  } else {
+    out = `<p class="empty">Paste a certificate and choose Verify to see the result here.</p>`;
+  }
+  return `<div class="panel">
+    <p class="lede">You are <strong>${esc(me.name)}</strong>. A student sent you a certificate. TrustCert checks it with the issuer's public key, the issuer's revocation list, and your own trust list. No central office is asked.</p>
+    <div class="cols">
+      <div class="box">
+        <div class="field"><label for="certIn">Certificate received</label>
+          <textarea id="certIn" spellcheck="false" placeholder='{"type":"AcademicCredential", ...}'>${esc(verifyText)}</textarea></div>
+        <div class="btns">
+          <button class="b primary" id="doVerify">Verify as ${esc(me.short)}</button>
+          <button class="b" id="tamper" title="Change the student's name without re-signing">Tamper with it</button>
+          <button class="b" id="loadLast">Load latest issued</button>
+        </div>
+        <p style="font-size:.8rem;color:var(--muted)">AWS steps: <span class="aws">KMS Verify</span> <span class="aws">DynamoDB GetItem</span></p>
+      </div>
+      <div class="box" aria-live="polite">${out}</div>
+    </div>
+  </div>`;
+}
+
+function viewIssue() {
+  const me = uni(S.acting);
+  const preview = lastIssued && lastIssued.issuer.id === me.id ? lastIssued : {
+    issuer: { id: me.id, name: me.name, keyFingerprint: me.fp },
+    subject: { name: $("#fName")?.value || "", studentId: "" }, credential: {}
+  };
+  return `<div class="panel">
+    <p class="lede">You are <strong>${esc(me.name)}</strong>. Only you hold this private key, so only you can issue certificates under your name. Switch universities with <em>Acting as</em> at the top.</p>
+    <div class="cols">
+      <form class="box" id="issueForm" autocomplete="off">
+        <h3>New certificate</h3>
+        <div class="field"><label for="fName">Student name</label><input id="fName" required value="Maria Santos"></div>
+        <div class="row2">
+          <div class="field"><label for="fId">Student ID</label><input id="fId" required value="2022-00456"></div>
+          <div class="field"><label for="fDate">Date conferred</label><input id="fDate" type="date" required value="2026-06-15"></div>
+        </div>
+        <div class="field"><label for="fTitle">Degree or program</label><input id="fTitle" required value="Bachelor of Science in Computer Science"></div>
+        <div class="field"><label for="fHonors">Honors (optional)</label><input id="fHonors" value="Magna Cum Laude"></div>
+        <div class="btns"><button class="b primary" type="submit">Sign and issue as ${esc(me.short)}</button></div>
+        <p style="font-size:.8rem;color:var(--muted)">AWS steps: <span class="aws">Cognito group check</span> <span class="aws">KMS Sign</span> <span class="aws">DynamoDB PutItem</span></p>
+      </form>
+      <div class="box">
+        ${certCard(preview)}
+        ${lastIssued && lastIssued.issuer.id === me.id ? `
+          <div class="field"><label for="issuedOut">Signed certificate (give this to the student)</label>
+          <textarea id="issuedOut" readonly spellcheck="false">${esc(JSON.stringify(lastIssued, null, 2))}</textarea></div>
+          <div class="btns"><button class="b" id="copyOut">Copy</button><button class="b primary" id="sendVerify">Open in Verify</button></div>` :
+          `<p class="empty">The signed certificate text appears here after you issue it.</p>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+function graph() {
+  const n = S.unis.length, cx = 230, cy = 150, R = n > 2 ? 105 : 80, r = 24;
+  const pos = S.unis.map((u, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + R * Math.cos(a), cy + R * Math.sin(a)]; });
+  let edges = "";
+  S.unis.forEach((u, i) => u.trusts.forEach(t => {
+    const j = S.unis.findIndex(x => x.id === t); if (j < 0) return;
+    const [x1, y1] = pos[i], [x2, y2] = pos[j];
+    const d = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / d, uy = (y2 - y1) / d;
+    const ox = -uy * 5, oy = ux * 5; // offset so two-way trust shows two lines
+    edges += `<line x1="${x1 + ux * r + ox}" y1="${y1 + uy * r + oy}" x2="${x2 - ux * (r + 6) + ox}" y2="${y2 - uy * (r + 6) + oy}" style="stroke:${colorOf(u)};stroke-width:2" marker-end="url(#ah${i})"/>`;
+  }));
+  const markers = S.unis.map((u, i) => `<marker id="ah${i}" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:${colorOf(u)}"/></marker>`).join("");
+  const nodes = S.unis.map((u, i) => `<g><circle cx="${pos[i][0]}" cy="${pos[i][1]}" r="${r}" style="fill:${colorOf(u)};stroke:var(--surface);stroke-width:${u.id === S.acting ? 0 : 3}"/>${u.id === S.acting ? `<circle cx="${pos[i][0]}" cy="${pos[i][1]}" r="${r + 5}" style="fill:none;stroke:${colorOf(u)};stroke-width:2"/>` : ""}<text x="${pos[i][0]}" y="${pos[i][1] + 4}" text-anchor="middle" style="fill:var(--surface);font:700 11px var(--display)">${esc(u.short)}</text></g>`).join("");
+  return `<svg class="graph" viewBox="0 0 460 300" role="img" aria-label="Trust graph. Arrows point from a university to the universities it trusts."><defs>${markers}</defs>${edges}${nodes}</svg>`;
+}
+
+function viewNetwork() {
+  const me = uni(S.acting);
+  const others = S.unis.filter(u => u.id !== me.id);
+  return `<div class="panel">
+    <p class="lede">There is no central authority. Each university publishes its own public key and keeps its own trust list. An arrow means "trusts". If you trust a university, you also accept the universities it trusts (one step of delegation).</p>
+    <div class="cols">
+      <div class="box">
+        <h3>Who ${esc(me.short)} trusts</h3>
+        ${others.length ? others.map(u => `<label class="toggle"><input type="checkbox" data-trust="${esc(u.id)}" ${me.trusts.includes(u.id) ? "checked" : ""}><span class="seal" style="--uc:${colorOf(u)};width:24px;height:24px;font-size:.48rem;box-shadow:none" aria-hidden="true">${esc(u.short)}</span>${esc(u.name)}</label>`).join("") : `<p class="empty">Add another university to build trust.</p>`}
+        <p style="font-size:.8rem;color:var(--muted)">AWS step: <span class="aws">DynamoDB UpdateItem</span> on ${esc(me.short)}'s issuer record. Cross-account: <span class="aws">KMS key policy</span></p>
+        <hr style="border:0;border-top:1px solid var(--line);width:100%">
+        <form id="addUni" class="btns" autocomplete="off" style="align-items:end">
+          <div class="field" style="flex:2 1 180px"><label for="nuName">New university</label><input id="nuName" required placeholder="Eastbridge University"></div>
+          <div class="field" style="flex:1 1 80px"><label for="nuShort">Short code</label><input id="nuShort" required maxlength="6" placeholder="EBU"></div>
+          <button class="b" type="submit">Add and create key</button>
+        </form>
+      </div>
+      <div class="box">${graph()}</div>
+    </div>
+    <div class="unis">${S.unis.map(u => `<div class="uni ${u.id === me.id ? "me" : ""}" style="--uc:${colorOf(u)}">
+      <div class="hd">${seal(u)}<div><h3>${esc(u.name)}</h3><span style="font-size:.78rem;color:var(--muted)">${u.issued.length} issued · ${u.revoked.length} revoked</span></div></div>
+      <div><div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Public key fingerprint</div><div class="fp">${esc(u.fp)}</div></div>
+      <div>${u.trusts.length ? u.trusts.map(t => `<span class="tag">trusts ${esc(uni(t)?.short || t)}</span>`).join("") : `<span class="tag">trusts no one yet</span>`}</div>
+    </div>`).join("")}</div>
+  </div>`;
+}
+
+function viewRecords() {
+  const me = uni(S.acting);
+  return `<div class="panel">
+    <p class="lede">These are the records <strong>${esc(me.name)}</strong> keeps for certificates it issued. Revoking adds the certificate to ${esc(me.short)}'s public revocation list, so every verifier sees it at once.</p>
+    <div class="box">${me.issued.length ? `<div class="tbl"><table>
+      <thead><tr><th>Certificate ID</th><th>Student</th><th>Credential</th><th>Issued</th><th>Status</th><th></th></tr></thead>
+      <tbody>${me.issued.map(c => { const rev = me.revoked.includes(c.certId); return `<tr>
+        <td class="num">${esc(c.certId)}</td><td>${esc(c.subject.name)}<br><span class="mono" style="color:var(--muted)">${esc(c.subject.studentId)}</span></td>
+        <td>${esc(c.credential.title)}</td><td class="num">${esc(c.issuedAt.slice(0, 10))}</td>
+        <td><span class="st ${rev ? "st-bad" : "st-ok"}">${rev ? "REVOKED" : "VALID"}</span></td>
+        <td><div class="btns" style="flex-wrap:nowrap"><button class="b" data-open="${esc(c.certId)}">Verify</button>${rev ? `<button class="b" data-restore="${esc(c.certId)}">Restore</button>` : `<button class="b danger" data-revoke="${esc(c.certId)}">Revoke</button>`}</div></td>
+      </tr>`; }).join("")}</tbody></table></div>` : `<p class="empty">${esc(me.short)} hasn't issued any certificates yet. Use the Issue tab.</p>`}
+      <p style="font-size:.8rem;color:var(--muted)">AWS step: <span class="aws">DynamoDB UpdateItem</span> sets <code>status = REVOKED</code></p>
+    </div>
+  </div>`;
+}
+
+function viewAudit() {
+  return `<div class="panel">
+    <p class="lede">Every key use and trust change is recorded, like AWS CloudTrail. The right column shows the AWS API call each action maps to.</p>
+    <div class="box"><div class="tbl"><table>
+      <thead><tr><th>Time</th><th>University</th><th>Action</th><th>AWS equivalent</th></tr></thead>
+      <tbody>${S.audit.map(a => `<tr><td class="num">${esc(a.t.replace("T", " ").slice(0, 19))}</td><td>${esc(a.actor)}</td><td>${esc(a.action)}<br><span style="color:var(--muted);font-size:.8rem">${esc(a.detail)}</span></td><td><span class="aws">${esc(a.aws)}</span></td></tr>`).join("")}</tbody>
+    </table></div></div>
+  </div>`;
+}
+
+/* ---------- event binding ---------- */
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => t.hidden = true, 2600); }
+async function runVerify() {
+  const box = $("#certIn");
+  if (box && tab === "verify") verifyText = box.value;
+  lastResult = await verify(verifyText, S.acting);
+  render();
+}
+function openInVerify(cert) { verifyText = JSON.stringify(cert, null, 2); tab = "verify"; runVerify(); }
+
+const bind = {
+  verify() {
+    $("#certIn").addEventListener("input", e => verifyText = e.target.value);
+    $("#doVerify").addEventListener("click", runVerify);
+    $("#tamper").addEventListener("click", () => {
+      try {
+        const c = JSON.parse($("#certIn").value);
+        if (c.credential) c.credential.honors = c.credential.honors === "Summa Cum Laude" ? "Cum Laude" : "Summa Cum Laude";
+        $("#certIn").value = JSON.stringify(c, null, 2);
+        verifyText = $("#certIn").value;
+        toast("Changed the honors to " + c.credential.honors + " without re-signing");
+      } catch (e) { toast("Paste a certificate first"); }
+    });
+    $("#loadLast").addEventListener("click", () => {
+      const all = S.unis.flatMap(u => u.issued).sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
+      if (!all.length) return toast("No certificates issued yet");
+      verifyText = JSON.stringify(all[0], null, 2); $("#certIn").value = verifyText; toast("Loaded " + all[0].certId);
+    });
+  },
+  issue() {
+    $("#issueForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      lastIssued = await issue(S.acting, { name: $("#fName").value, studentId: $("#fId").value, title: $("#fTitle").value, honors: $("#fHonors").value, dateConferred: $("#fDate").value });
+      save(); render(); toast("Signed and issued " + lastIssued.certId);
+    });
+    const copy = $("#copyOut");
+    copy && copy.addEventListener("click", () => {
+      const ta = $("#issuedOut");
+      navigator.clipboard.writeText(ta.value).then(() => toast("Copied")).catch(() => { ta.focus(); ta.select(); toast("Press Ctrl+C to copy"); });
+    });
+    const sv = $("#sendVerify");
+    sv && sv.addEventListener("click", () => openInVerify(lastIssued));
+  },
+  network() {
+    const me = uni(S.acting);
+    document.querySelectorAll("[data-trust]").forEach(cb => cb.addEventListener("change", () => {
+      const t = cb.dataset.trust, other = uni(t);
+      if (cb.checked) { if (!me.trusts.includes(t)) me.trusts.push(t); log(me.short, "Trusts " + other.short, "DynamoDB UpdateItem", me.short + " added " + other.short + " to its trust list"); }
+      else { me.trusts = me.trusts.filter(x => x !== t); log(me.short, "Stopped trusting " + other.short, "DynamoDB UpdateItem", me.short + " removed " + other.short + " from its trust list"); }
+      lastResult = null; save(); render();
+    }));
+    $("#addUni").addEventListener("submit", async e => {
+      e.preventDefault();
+      const name = $("#nuName").value.trim(), short = $("#nuShort").value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (!name || !short) return toast("Enter a name and a short code of letters or digits");
+      const id = short.toLowerCase();
+      if (uni(id)) return toast(short + " already exists. Pick another short code.");
+      const u = await makeUni(id, short, name, S.unis.length);
+      S.unis.push(u);
+      log(short, "Created signing key", "KMS CreateKey", "ECC_NIST_P256 key " + u.fp);
+      save(); renderActing(); render(); toast(name + " joined with its own signing key");
+    });
+  },
+  records() {
+    const me = uni(S.acting);
+    document.querySelectorAll("[data-revoke]").forEach(b => b.addEventListener("click", () => {
+      me.revoked.push(b.dataset.revoke); log(me.short, "Revoked " + b.dataset.revoke, "DynamoDB UpdateItem", "Added to " + me.short + "'s revocation list");
+      lastResult = null; save(); render(); toast("Revoked " + b.dataset.revoke);
+    }));
+    document.querySelectorAll("[data-restore]").forEach(b => b.addEventListener("click", () => {
+      me.revoked = me.revoked.filter(x => x !== b.dataset.restore); log(me.short, "Restored " + b.dataset.restore, "DynamoDB UpdateItem", "Removed from revocation list");
+      lastResult = null; save(); render(); toast("Restored " + b.dataset.restore);
+    }));
+    document.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => openInVerify(me.issued.find(c => c.certId === b.dataset.open))));
+  }
+};
+
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => { tab = t.dataset.tab; render(); }));
+$("#actingSel").addEventListener("change", e => {
+  S.acting = e.target.value; lastResult = null;
+  log(uni(S.acting).short, "Signed in", "Cognito InitiateAuth", "Acting as " + uni(S.acting).name);
+  save(); render();
+});
+let armed = 0;
+$("#resetBtn").addEventListener("click", async e => {
+  if (Date.now() - armed > 4000) { armed = Date.now(); e.target.textContent = "Click again to reset"; setTimeout(() => e.target.textContent = "Reset demo", 4000); return; }
+  armed = 0; e.target.textContent = "Reset demo";
+  try { localStorage.removeItem(STORE); } catch (err) {}
+  tab = "verify"; lastResult = null; await seed(); renderActing(); await runVerify(); toast("Demo reset with fresh keys");
+});
+
+(async function start() {
+  if (!window.crypto || !crypto.subtle) { $("#view").innerHTML = `<p class="empty">This browser can't create signing keys here. Open the page over HTTPS or from localhost.</p>`; return; }
+  S = load();
+  if (!S || !S.unis || !S.unis.length) await seed();
+  else { const all = S.unis.flatMap(u => u.issued); if (all[0]) { lastIssued = all[0]; verifyText = verifyText || JSON.stringify(all[all.length - 1], null, 2); } }
+  renderActing();
+  await runVerify();
+})();
+})();
+</script>
