@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "VerifyOnlyNeverSign",
+      "Effect": "Allow",
+      "Action": ["kms:Verify", "kms:GetPublicKey"],
+      "Resource": [
+        "arn:aws:kms:ap-southeast-1:ACCOUNT_ID:key/MSU_KEY_ID",
+        "arn:aws:kms:ap-southeast-1:ACCOUNT_ID:key/NSU_KEY_ID"
+      ]
+    },
+    {
+      "Sid": "ReadCertificatesAndIssuers",
+      "Effect": "Allow",
+      "Action": "dynamodb:GetItem",
+      "Resource": [
+        "arn:aws:dynamodb:ap-southeast-1:ACCOUNT_ID:table/TrustCert-Certificates",
+        "arn:aws:dynamodb:ap-southeast-1:ACCOUNT_ID:table/TrustCert-Issuers"
+      ]
+    },
+    {
+      "Sid": "Logs",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": "arn:aws:logs:ap-southeast-1:ACCOUNT_ID:*"
+    }
+  ]
+}

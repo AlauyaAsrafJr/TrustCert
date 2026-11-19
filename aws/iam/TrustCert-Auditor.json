@@ -1,0 +1,33 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadAuditTrail",
+      "Effect": "Allow",
+      "Action": ["cloudtrail:LookupEvents", "cloudtrail:GetTrail", "cloudtrail:DescribeTrails"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadOnlyRecords",
+      "Effect": "Allow",
+      "Action": ["dynamodb:GetItem", "dynamodb:Scan", "dynamodb:Query", "dynamodb:DescribeTable"],
+      "Resource": [
+        "arn:aws:dynamodb:ap-southeast-1:ACCOUNT_ID:table/TrustCert-Certificates",
+        "arn:aws:dynamodb:ap-southeast-1:ACCOUNT_ID:table/TrustCert-Issuers"
+      ]
+    },
+    {
+      "Sid": "AuditorCanNeverChangeAnything",
+      "Effect": "Deny",
+      "Action": [
+        "kms:Sign",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "cloudtrail:StopLogging",
+        "cloudtrail:DeleteTrail"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

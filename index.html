@@ -130,6 +130,12 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; font-family: v
 .st { font: 600 .7rem var(--mono); padding: 2px 7px; border-radius: 4px }
 .st-ok { background: var(--ok-bg); color: var(--ok) } .st-bad { background: var(--bad-bg); color: var(--bad) }
 
+.tab.locked { color: var(--muted); opacity: .7 }
+.tab.locked::after { content: "locked"; margin-left: 6px; padding: 1px 5px; border-radius: 4px; background: var(--sunk); font: 600 .6rem var(--mono); text-transform: uppercase; letter-spacing: .06em }
+.rolebar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 14px; margin-bottom: 18px; border-radius: 10px; background: var(--accent-soft); font-size: .86rem }
+.rolebar .rk { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-right: 4px }
+.rolebar .aws { background: var(--surface) }
+pre.denied { margin: 0; padding: 12px; border-radius: 8px; background: var(--sunk); font: .76rem/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere }
 .toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 8px; font-size: .88rem; z-index: 20; max-width: calc(100% - 32px) }
 footer { color: var(--muted); font-size: .8rem; padding-block: 0 30px }
 
@@ -149,6 +155,13 @@ footer { color: var(--muted); font-size: .8rem; padding-block: 0 30px }
     <div class="acting">
       <label for="actingSel">Acting as</label>
       <select id="actingSel" aria-label="University you are acting as"></select>
+      <label for="roleSel">Role</label>
+      <select id="roleSel" aria-label="Your role">
+        <option value="issuer">Issuer (Registrar)</option>
+        <option value="verifier">Verifier</option>
+        <option value="auditor">Auditor</option>
+        <option value="student">Student (User)</option>
+      </select>
       <span class="chip" title="Simulated AWS Region for section VvWw">ap-southeast-1 · Singapore</span>
     </div>
   </div>
@@ -156,9 +169,9 @@ footer { color: var(--muted); font-size: .8rem; padding-block: 0 30px }
 
 <div class="wrap">
   <section class="story" aria-label="How TrustCert works">
-    <div class="step"><b>1</b><p><strong>A university signs</strong>Each university holds its own private signing key. No one else can issue in its name.</p></div>
-    <div class="step"><b>2</b><p><strong>The student shares it</strong>The signed certificate is plain text the student can send anywhere.</p></div>
-    <div class="step"><b>3</b><p><strong>Any university verifies</strong>The verifier checks the signature with the issuer's public key and applies its own trust list.</p></div>
+    <div class="step"><b>1</b><p><strong>An Issuer signs</strong>Each university holds its own private signing key. Only its Issuer role can use it.</p></div>
+    <div class="step"><b>2</b><p><strong>The student shares it</strong>The student holds the signed certificate and sends it to whoever needs it.</p></div>
+    <div class="step"><b>3</b><p><strong>A Verifier checks it, an Auditor watches</strong>Any university verifies with the issuer's public key. Every action is logged for the Auditor.</p></div>
   </section>
 
   <nav class="tabs" role="tablist" aria-label="Sections">
@@ -166,6 +179,7 @@ footer { color: var(--muted); font-size: .8rem; padding-block: 0 30px }
     <button class="tab" role="tab" id="tab-issue" data-tab="issue">Issue</button>
     <button class="tab" role="tab" id="tab-network" data-tab="network">Trust network</button>
     <button class="tab" role="tab" id="tab-records" data-tab="records">Issued records</button>
+    <button class="tab" role="tab" id="tab-wallet" data-tab="wallet">My credentials</button>
     <button class="tab" role="tab" id="tab-audit" data-tab="audit">Audit log</button>
   </nav>
 
@@ -193,6 +207,18 @@ let tab = "verify";
 let lastResult = null;   // last verification result
 let verifyText = "";     // contents of the verify box
 let lastIssued = null;
+let walletStudent = "";
+
+/* ---------- roles (separation of duties, least privilege) ---------- */
+const ROLES = {
+  issuer:   { label: "Issuer", iam: "TrustCert-Issuer", tabs: ["issue", "records", "network"], allow: ["kms:Sign", "dynamodb:PutItem", "dynamodb:UpdateItem"] },
+  verifier: { label: "Verifier", iam: "TrustCert-Verifier", tabs: ["verify", "network"], allow: ["kms:Verify", "dynamodb:GetItem", "trust list UpdateItem"] },
+  auditor:  { label: "Auditor", iam: "TrustCert-Auditor", tabs: ["audit", "records", "network"], allow: ["cloudtrail:LookupEvents", "dynamodb:Scan (read-only)"] },
+  student:  { label: "Student", iam: "none (Cognito group only)", tabs: ["wallet", "network"], allow: ["view and share own certificates"] }
+};
+const TABNAMES = { verify: "Verify", issue: "Issue", network: "Trust network", records: "Issued records", wallet: "My credentials", audit: "Audit log" };
+const NEEDS = { verify: "kms:Verify", issue: "kms:Sign", records: "dynamodb:Scan", wallet: "dynamodb:Query (own certificates)", audit: "cloudtrail:LookupEvents", network: "dynamodb:GetItem" };
+const can = t => ROLES[S.role].tabs.includes(t);
 
 /* ---------- crypto helpers ---------- */
 // Canonical JSON: sorted keys, no spaces. The same rule is used by the AWS Lambda version.
@@ -224,7 +250,7 @@ const colorOf = u => `var(--u${(u.color % 6) + 1})`;
 function save() { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) {} }
 function load() { try { const r = localStorage.getItem(STORE); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
 function log(actor, action, aws, detail) {
-  S.audit.unshift({ t: new Date().toISOString(), actor, action, aws, detail });
+  S.audit.unshift({ t: new Date().toISOString(), actor, role: (ROLES[S.role] || {}).label || "", action, aws, detail });
   if (S.audit.length > 300) S.audit.length = 300;
 }
 async function makeUni(id, short, name, color) {
@@ -233,7 +259,7 @@ async function makeUni(id, short, name, color) {
 }
 
 async function seed() {
-  S = { acting: "nsu", unis: [], audit: [] };
+  S = { acting: "nsu", role: "issuer", unis: [], audit: [] };
   S.unis.push(await makeUni("msu", "MSU", "MSU", 0));
   S.unis.push(await makeUni("nsu", "NSU", "Northport State University", 1));
   S.unis.push(await makeUni("cvc", "CVC", "Carmel Valley College", 2));
@@ -249,6 +275,7 @@ async function seed() {
   });
   verifyText = JSON.stringify(cert, null, 2);
   lastIssued = cert;
+  S.role = "verifier";
   save();
 }
 
@@ -375,13 +402,67 @@ function renderActing() {
   const sel = $("#actingSel");
   sel.innerHTML = S.unis.map(u => `<option value="${esc(u.id)}">${esc(u.short)} · ${esc(u.name)}</option>`).join("");
   sel.value = S.acting;
+  $("#roleSel").value = S.role;
 }
 
 function render() {
-  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t.dataset.tab === tab)));
+  document.querySelectorAll(".tab").forEach(t => {
+    const ok = can(t.dataset.tab);
+    t.setAttribute("aria-selected", String(t.dataset.tab === tab));
+    t.classList.toggle("locked", !ok);
+    t.title = ok ? "" : "Not allowed for the " + ROLES[S.role].label + " role";
+  });
   const view = $("#view");
-  view.innerHTML = ({ verify: viewVerify, issue: viewIssue, network: viewNetwork, records: viewRecords, audit: viewAudit })[tab]();
-  bind[tab] && bind[tab]();
+  const allowed = can(tab);
+  const views = { verify: viewVerify, issue: viewIssue, network: viewNetwork, records: viewRecords, wallet: viewWallet, audit: viewAudit };
+  view.innerHTML = roleBar() + (allowed ? views[tab]() : viewDenied(tab));
+  if (allowed) { bind[tab] && bind[tab](); }
+  else document.querySelectorAll("[data-role]").forEach(b => b.addEventListener("click", () => setRole(b.dataset.role)));
+}
+
+function roleBar() {
+  const r = ROLES[S.role], u = uni(S.acting);
+  return `<div class="rolebar"><span><span class="rk">Signed in as</span>${esc(u.short)} · <strong>${esc(r.label)}</strong></span>
+    <span><span class="rk">IAM role</span><code>${esc(r.iam)}</code></span>
+    <span><span class="rk">Allowed</span>${r.allow.map(a => `<span class="aws">${esc(a)}</span>`).join(" ")}</span></div>`;
+}
+
+function viewDenied(t) {
+  const r = ROLES[S.role], u = uni(S.acting);
+  const who = Object.entries(ROLES).filter(([, v]) => v.tabs.includes(t));
+  return `<div class="panel"><div class="box">
+    <div class="verdict v-bad"><h3>Access denied</h3><p>The ${esc(r.label)} role can't open ${esc(TABNAMES[t])}. Each role holds only the permissions its job needs, so no single person controls the whole system.</p></div>
+    <pre class="denied">AccessDeniedException: arn:aws:sts::ACCOUNT_ID:assumed-role/${esc(r.iam.startsWith("none") ? "TrustCert-Student" : r.iam)}/${esc(u.id)}-user
+is not authorized to perform: ${esc(NEEDS[t])}</pre>
+    <p style="font-size:.86rem;color:var(--muted)">This attempt was recorded in the Audit log, like an AccessDenied event in CloudTrail.</p>
+    <div class="btns">${who.map(([k, v]) => `<button class="b primary" data-role="${k}">Switch to ${esc(v.label)}</button>`).join("")}</div>
+  </div></div>`;
+}
+
+function setRole(k) {
+  S.role = k; $("#roleSel").value = k; lastResult = null;
+  const u = uni(S.acting);
+  log(u.short, "Signed in as " + ROLES[k].label, "Cognito InitiateAuth", `Group ${u.id}-${k} → ${ROLES[k].iam}`);
+  if (!can(tab)) tab = ROLES[k].tabs[0];
+  save(); render();
+}
+
+function viewWallet() {
+  const all = S.unis.flatMap(u => u.issued.map(c => ({ c, u })));
+  const names = [...new Set(all.map(x => x.c.subject.name))].sort();
+  if (!names.length) return `<div class="panel"><p class="empty">No certificates have been issued yet. Switch to the Issuer role to issue one.</p></div>`;
+  if (!names.includes(walletStudent)) walletStudent = names[0];
+  const mine = all.filter(x => x.c.subject.name === walletStudent);
+  return `<div class="panel">
+    <p class="lede">Students hold their own certificates and choose who to share them with. They can't issue, edit, or revoke anything.</p>
+    <div class="box" style="max-width:360px"><div class="field"><label for="walletSel">Student</label>
+      <select id="walletSel">${names.map(n => `<option value="${esc(n)}" ${n === walletStudent ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></div></div>
+    <div class="unis">${mine.map(({ c, u }, i) => { const rev = u.revoked.includes(c.certId); return `<div class="box">
+      ${certCard(c)}
+      <div class="btns" style="align-items:center"><span class="st ${rev ? "st-bad" : "st-ok"}">${rev ? "REVOKED" : "VALID"}</span><button class="b" data-copy="${i}">Copy to share</button></div>
+      <textarea id="wtxt${i}" readonly spellcheck="false" style="min-height:90px" aria-label="Certificate text">${esc(JSON.stringify(c, null, 2))}</textarea>
+    </div>`; }).join("")}</div>
+  </div>`;
 }
 
 function viewVerify() {
@@ -450,7 +531,7 @@ function viewIssue() {
         ${lastIssued && lastIssued.issuer.id === me.id ? `
           <div class="field"><label for="issuedOut">Signed certificate (give this to the student)</label>
           <textarea id="issuedOut" readonly spellcheck="false">${esc(JSON.stringify(lastIssued, null, 2))}</textarea></div>
-          <div class="btns"><button class="b" id="copyOut">Copy</button><button class="b primary" id="sendVerify">Open in Verify</button></div>` :
+          <div class="btns"><button class="b" id="copyOut">Copy</button><button class="b primary" id="sendVerify">Switch to Verifier and check it</button></div>` :
           `<p class="empty">The signed certificate text appears here after you issue it.</p>`}
       </div>
     </div>
@@ -481,7 +562,8 @@ function viewNetwork() {
     <div class="cols">
       <div class="box">
         <h3>Who ${esc(me.short)} trusts</h3>
-        ${others.length ? others.map(u => `<label class="toggle"><input type="checkbox" data-trust="${esc(u.id)}" ${me.trusts.includes(u.id) ? "checked" : ""}><span class="seal" style="--uc:${colorOf(u)};width:24px;height:24px;font-size:.48rem;box-shadow:none" aria-hidden="true">${esc(u.short)}</span>${esc(u.name)}</label>`).join("") : `<p class="empty">Add another university to build trust.</p>`}
+        ${others.length ? others.map(u => `<label class="toggle"><input type="checkbox" data-trust="${esc(u.id)}" ${me.trusts.includes(u.id) ? "checked" : ""} ${S.role === "verifier" ? "" : "disabled"}><span class="seal" style="--uc:${colorOf(u)};width:24px;height:24px;font-size:.48rem;box-shadow:none" aria-hidden="true">${esc(u.short)}</span>${esc(u.name)}</label>`).join("") : `<p class="empty">Add another university to build trust.</p>`}
+        ${S.role === "verifier" ? "" : `<p style="font-size:.84rem;color:var(--warn)">Only the Verifier role can change who ${esc(me.short)} trusts.</p>`}
         <p style="font-size:.8rem;color:var(--muted)">AWS step: <span class="aws">DynamoDB UpdateItem</span> on ${esc(me.short)}'s issuer record. Cross-account: <span class="aws">KMS key policy</span></p>
         <hr style="border:0;border-top:1px solid var(--line);width:100%">
         <form id="addUni" class="btns" autocomplete="off" style="align-items:end">
@@ -503,14 +585,14 @@ function viewNetwork() {
 function viewRecords() {
   const me = uni(S.acting);
   return `<div class="panel">
-    <p class="lede">These are the records <strong>${esc(me.name)}</strong> keeps for certificates it issued. Revoking adds the certificate to ${esc(me.short)}'s public revocation list, so every verifier sees it at once.</p>
+    <p class="lede">These are the records <strong>${esc(me.name)}</strong> keeps for certificates it issued. ${S.role === "auditor" ? "As Auditor you can read them but not change them. " : ""}Revoking adds the certificate to ${esc(me.short)}'s public revocation list, so every verifier sees it at once.</p>
     <div class="box">${me.issued.length ? `<div class="tbl"><table>
       <thead><tr><th>Certificate ID</th><th>Student</th><th>Credential</th><th>Issued</th><th>Status</th><th></th></tr></thead>
       <tbody>${me.issued.map(c => { const rev = me.revoked.includes(c.certId); return `<tr>
         <td class="num">${esc(c.certId)}</td><td>${esc(c.subject.name)}<br><span class="mono" style="color:var(--muted)">${esc(c.subject.studentId)}</span></td>
         <td>${esc(c.credential.title)}</td><td class="num">${esc(c.issuedAt.slice(0, 10))}</td>
         <td><span class="st ${rev ? "st-bad" : "st-ok"}">${rev ? "REVOKED" : "VALID"}</span></td>
-        <td><div class="btns" style="flex-wrap:nowrap"><button class="b" data-open="${esc(c.certId)}">Verify</button>${rev ? `<button class="b" data-restore="${esc(c.certId)}">Restore</button>` : `<button class="b danger" data-revoke="${esc(c.certId)}">Revoke</button>`}</div></td>
+        <td>${S.role !== "issuer" ? `<span style="color:var(--muted);font-size:.8rem">read-only</span>` : `<div class="btns" style="flex-wrap:nowrap">${rev ? `<button class="b" data-restore="${esc(c.certId)}">Restore</button>` : `<button class="b danger" data-revoke="${esc(c.certId)}">Revoke</button>`}</div>`}</td>
       </tr>`; }).join("")}</tbody></table></div>` : `<p class="empty">${esc(me.short)} hasn't issued any certificates yet. Use the Issue tab.</p>`}
       <p style="font-size:.8rem;color:var(--muted)">AWS step: <span class="aws">DynamoDB UpdateItem</span> sets <code>status = REVOKED</code></p>
     </div>
@@ -521,8 +603,8 @@ function viewAudit() {
   return `<div class="panel">
     <p class="lede">Every key use and trust change is recorded, like AWS CloudTrail. The right column shows the AWS API call each action maps to.</p>
     <div class="box"><div class="tbl"><table>
-      <thead><tr><th>Time</th><th>University</th><th>Action</th><th>AWS equivalent</th></tr></thead>
-      <tbody>${S.audit.map(a => `<tr><td class="num">${esc(a.t.replace("T", " ").slice(0, 19))}</td><td>${esc(a.actor)}</td><td>${esc(a.action)}<br><span style="color:var(--muted);font-size:.8rem">${esc(a.detail)}</span></td><td><span class="aws">${esc(a.aws)}</span></td></tr>`).join("")}</tbody>
+      <thead><tr><th>Time</th><th>Who</th><th>Action</th><th>AWS equivalent</th></tr></thead>
+      <tbody>${S.audit.map(a => `<tr><td class="num">${esc(a.t.replace("T", " ").slice(0, 19))}</td><td>${esc(a.actor)}${a.role ? `<br><span style="color:var(--muted);font-size:.8rem">${esc(a.role)}</span>` : ""}</td><td>${esc(a.action)}<br><span style="color:var(--muted);font-size:.8rem">${esc(a.detail)}</span></td><td><span class="aws">${esc(a.aws)}</span></td></tr>`).join("")}</tbody>
     </table></div></div>
   </div>`;
 }
@@ -568,7 +650,7 @@ const bind = {
       navigator.clipboard.writeText(ta.value).then(() => toast("Copied")).catch(() => { ta.focus(); ta.select(); toast("Press Ctrl+C to copy"); });
     });
     const sv = $("#sendVerify");
-    sv && sv.addEventListener("click", () => openInVerify(lastIssued));
+    sv && sv.addEventListener("click", () => { setRole("verifier"); openInVerify(lastIssued); });
   },
   network() {
     const me = uni(S.acting);
@@ -590,6 +672,15 @@ const bind = {
       save(); renderActing(); render(); toast(name + " joined with its own signing key");
     });
   },
+  wallet() {
+    $("#walletSel").addEventListener("change", e => { walletStudent = e.target.value; render(); });
+    document.querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click", () => {
+      const ta = $("#wtxt" + b.dataset.copy);
+      log(uni(S.acting).short, "Shared a certificate", "none (student holds it)", walletStudent + " copied a certificate to send to a verifier");
+      save();
+      navigator.clipboard.writeText(ta.value).then(() => toast("Copied. Send it to any university.")).catch(() => { ta.focus(); ta.select(); toast("Press Ctrl+C to copy"); });
+    }));
+  },
   records() {
     const me = uni(S.acting);
     document.querySelectorAll("[data-revoke]").forEach(b => b.addEventListener("click", () => {
@@ -600,14 +691,18 @@ const bind = {
       me.revoked = me.revoked.filter(x => x !== b.dataset.restore); log(me.short, "Restored " + b.dataset.restore, "DynamoDB UpdateItem", "Removed from revocation list");
       lastResult = null; save(); render(); toast("Restored " + b.dataset.restore);
     }));
-    document.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => openInVerify(me.issued.find(c => c.certId === b.dataset.open))));
   }
 };
 
-document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => { tab = t.dataset.tab; render(); }));
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+  tab = t.dataset.tab;
+  if (!can(tab)) { log(uni(S.acting).short, "Access denied: " + NEEDS[tab], "IAM AccessDenied (CloudTrail)", ROLES[S.role].iam + " tried to open " + TABNAMES[tab]); save(); }
+  render();
+}));
+$("#roleSel").addEventListener("change", e => setRole(e.target.value));
 $("#actingSel").addEventListener("change", e => {
   S.acting = e.target.value; lastResult = null;
-  log(uni(S.acting).short, "Signed in", "Cognito InitiateAuth", "Acting as " + uni(S.acting).name);
+  log(uni(S.acting).short, "Signed in as " + ROLES[S.role].label, "Cognito InitiateAuth", "Acting as " + uni(S.acting).name);
   save(); render();
 });
 let armed = 0;
@@ -623,8 +718,9 @@ $("#resetBtn").addEventListener("click", async e => {
   S = load();
   if (!S || !S.unis || !S.unis.length) await seed();
   else { const all = S.unis.flatMap(u => u.issued); if (all[0]) { lastIssued = all[0]; verifyText = verifyText || JSON.stringify(all[all.length - 1], null, 2); } }
+  if (!S.role || !ROLES[S.role]) S.role = "verifier";
   renderActing();
-  await runVerify();
+  if (can("verify")) await runVerify(); else { tab = ROLES[S.role].tabs[0]; render(); }
 })();
 })();
 </script>

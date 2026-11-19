@@ -7,6 +7,7 @@ Another university checks a certificate it received:
   4. Does the VERIFIER trust the issuer, directly or through one university it trusts?
 
 Request body: {"verifierId": "nsu", "certificate": { ...signed certificate... }}
+Caller must be in the Cognito group "<verifier>-verifier". Runs with IAM role TrustCert-Verifier.
 """
 import base64
 import hashlib
@@ -23,6 +24,15 @@ ISSUERS = ddb.Table(os.environ.get("ISSUERS_TABLE", "TrustCert-Issuers"))
 
 def canon(obj):
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def caller_groups(event):
+    claims = (event.get("requestContext", {}).get("authorizer", {})
+              .get("jwt", {}).get("claims", {}))
+    raw = claims.get("cognito:groups", "")
+    if isinstance(raw, list):
+        return raw
+    return [g for g in raw.strip("[]").replace(",", " ").split() if g]
 
 
 def reply(status, body):
@@ -57,6 +67,8 @@ def lambda_handler(event, context):
 
     if not verifier:
         return reply(400, {"error": "Unknown verifierId."})
+    if f"{verifier['issuerId']}-verifier" not in caller_groups(event):
+        return reply(403, {"error": "Only the Verifier role can verify for this university."})
     if not (cert.get("certId") and cert.get("issuer", {}).get("id") and cert.get("signature", {}).get("value")):
         return reply(200, {"verdict": "invalid", "checks": ["Certificate is missing required parts."]})
 

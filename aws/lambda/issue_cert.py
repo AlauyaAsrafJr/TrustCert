@@ -1,8 +1,9 @@
 """TrustCert - issueCert Lambda (POST /issue)
 
 A university signs a certificate with ITS OWN AWS KMS key.
-Only users in the Cognito group named after the issuer (for example "msu")
+Only users in the Cognito group "<issuer>-issuer" (for example "msu-issuer")
 may issue for that issuer, so no university can issue in another's name.
+This function runs with the IAM role TrustCert-Issuer.
 
 Environment variables:
   CERTS_TABLE   = TrustCert-Certificates
@@ -49,8 +50,8 @@ def lambda_handler(event, context):
     data = json.loads(event.get("body") or "{}")
     issuer_id = data.get("issuerId", "")
 
-    # 1. Trust policy: the caller must belong to the issuer's Cognito group.
-    if issuer_id not in caller_groups(event):
+    # 1. Separation of duties: the caller must be in the issuer's "-issuer" group.
+    if f"{issuer_id}-issuer" not in caller_groups(event):
         return reply(403, {"error": f"You are not allowed to issue for '{issuer_id}'."})
 
     issuer = ISSUERS.get_item(Key={"issuerId": issuer_id}).get("Item")

@@ -1,6 +1,7 @@
 """TrustCert - revokeCert Lambda (POST /revoke)
 
-Only the university that issued a certificate can revoke it.
+Only the Issuer role of the university that issued a certificate can revoke it.
+Caller must be in the Cognito group "<issuer>-issuer". Runs with IAM role TrustCert-Issuer.
 Request body: {"certId": "TC-2026-MSU-1A2B3C"}
 """
 import json
@@ -35,7 +36,7 @@ def lambda_handler(event, context):
     record = CERTS.get_item(Key={"certId": cert_id}).get("Item")
     if not record:
         return reply(404, {"error": "Certificate not found."})
-    if record["issuerId"] not in groups:
+    if f"{record['issuerId']}-issuer" not in groups:
         return reply(403, {"error": "Only the issuing university can revoke this certificate."})
     try:
         CERTS.update_item(Key={"certId": cert_id},
