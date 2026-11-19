@@ -1,31 +1,20 @@
 <meta charset="utf-8">
-<title>TrustCert</title>
+<title>Credential Verification System</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 /* Layout: top bar with "acting as" university, story strip, tabbed workspace (issue / verify / trust network / records / audit) */
 :root {
-  --bg: #F3F5F8; --surface: #FFFFFF; --sunk: #EAEEF3; --ink: #15213A; --muted: #5A6578; --line: #D8DEE7;
-  --accent: #0E5C68; --accent-ink: #FFFFFF; --accent-soft: #DDEFF1;
-  --ok: #1B7343; --ok-bg: #E3F3E9; --warn: #8F5B00; --warn-bg: #FBEFD6; --bad: #AF2A20; --bad-bg: #FBE5E2;
-  --u1: #8A1C2C; --u2: #1F5FA8; --u3: #2E7D4F; --u4: #8A5A00; --u5: #6B3FA0; --u6: #00707A;
+  --bg: #0D131B; --surface: #151D28; --sunk: #101722; --ink: #E5EAF2; --muted: #98A4B6; --line: #263242;
+  --accent: #5EC0CC; --accent-ink: #062126; --accent-soft: #123139;
+  --ok: #63D394; --ok-bg: #11301F; --warn: #F0B856; --warn-bg: #33270E; --bad: #FF8F84; --bad-bg: #3A1613;
+  --u1: #F07D8E; --u2: #79AEF0; --u3: #6FCB93; --u4: #E3B45C; --u5: #B89AF0; --u6: #5ECFD8;
   --display: "Sora", "Segoe UI", system-ui, sans-serif;
   --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  color-scheme: dark;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0D131B; --surface: #151D28; --sunk: #101722; --ink: #E5EAF2; --muted: #98A4B6; --line: #26324289;
-  --accent: #5EC0CC; --accent-ink: #062126; --accent-soft: #123139;
-  --ok: #63D394; --ok-bg: #11301F; --warn: #F0B856; --warn-bg: #33270E; --bad: #FF8F84; --bad-bg: #3A1613;
-  --u1: #F07D8E; --u2: #79AEF0; --u3: #6FCB93; --u4: #E3B45C; --u5: #B89AF0; --u6: #5ECFD8;
-  color-scheme: dark } }
-:root[data-theme="dark"] {
-  --bg: #0D131B; --surface: #151D28; --sunk: #101722; --ink: #E5EAF2; --muted: #98A4B6; --line: #26324289;
-  --accent: #5EC0CC; --accent-ink: #062126; --accent-soft: #123139;
-  --ok: #63D394; --ok-bg: #11301F; --warn: #F0B856; --warn-bg: #33270E; --bad: #FF8F84; --bad-bg: #3A1613;
-  --u1: #F07D8E; --u2: #79AEF0; --u3: #6FCB93; --u4: #E3B45C; --u5: #B89AF0; --u6: #5ECFD8;
-  color-scheme: dark }
 
 * { box-sizing: border-box }
 body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body) }
@@ -148,8 +137,8 @@ footer { color: var(--muted); font-size: .8rem; padding-block: 0 30px }
   <div class="wrap">
     <div class="brand">
       <div>
-        <h1>TrustCert</h1>
-        <small>Decentralized academic credential verification</small>
+        <h1>Credential Verification System</h1>
+        <small>TrustCert · Decentralized Trust Management</small>
       </div>
     </div>
     <div class="acting">
